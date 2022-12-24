@@ -333,6 +333,8 @@ class HPACBenchmarkInstance:
         return HPACBlackscholesInstance
       elif name == 'binomialoptions':
         return HPACBinomialOptionsInstance
+      elif name == 'leukocyte':
+        return HPACLeukocyteInstance
       else:
         raise ValueError("No instance type for benchmark type "
                           f"{name} found."
@@ -553,6 +555,101 @@ class HPACBlackscholesInstance(HPACBenchmarkInstance):
   def get_n(self):
     return self.run_params.num_options
 
+
+class HPACLeukocyteInstance(HPACBenchmarkInstance):
+    @dataclass
+    class RunParams:
+        input_data: str
+        exact_results: str
+        num_frames: int
+        num_cells: int
+
+    @dataclass
+    class BuildParams:
+        executable_name: str
+        benchmark_directory: str
+        output_filename: str
+
+    def __init__(self, name, region, config_dict, install_location=None):
+        super().__init__(name, region, config_dict)
+        self.command = None
+        run_config = config_dict['executable_arguments']
+        self.run_params = self.RunParams(config_dict['input_data'],
+                                         config_dict['exact_results'],
+                                         run_config['num_cells'],
+                                         run_config['num_frames']
+                                    )
+        self.build_params = self.BuildParams(config_dict['executable_name'],
+                                             config_dict['benchmark_directory'],
+                                             config_dict['output_filename']
+                                             )
+        self.install_location = install_location
+
+        self.runtime = 0
+        self.error_metric = "mape"
+
+    def get_run_command(self):
+        if not self.command:
+            exe = self.get_build_location() / Path(self.build_params.executable_name)
+            exe = exe.resolve()
+            runp = self.run_params
+            self.command =  sh.Command(exe).bake(self.run_params.input_data,
+                                                 self.run_params.num_frames
+                                                 )
+        return self.command
+
+    # TODO: this can probably be moved to the baseclass
+    def build(self, pre=None, post=None):
+        build_dir = self.get_build_location()
+        if not build_dir.exists():
+            build_dir.mkdir(parents=True, exist_ok=True)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        if pre:
+            pre()
+        builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
+        builder.build()
+        if post:
+            post()
+
+    # Given the stdout for this benchmark, return the runtime
+    def get_runtime(self, stdout):
+        stdout_lines = stdout.split('\n')
+        runtime = list(filter(lambda x: x.startswith('Total application run time:'),
+                              stdout_lines)
+                       )
+        return float(runtime[0].split()[4])
+
+    # given accurate and approx outputs, return error metric
+    def get_error(self):
+        e_file = open(self.get_exact_filepath(), 'r')
+        a_file = open(self.get_approx_filepath(), 'r')
+
+        exact = []
+        approx = []
+        for line in e_file:
+          spl = line.strip().split(',')
+          print(spl)
+          d1 = float(spl[1])
+          d2 = float(spl[2])
+          exact.append(d1)
+          exact.append(d2)
+
+        for line in a_file:
+          spl = line.strip().split(',')
+          d1 = float(spl[1])
+          d2 = float(spl[2])
+          approx.append(d1)
+          approx.append(d2)
+
+
+        exact = np.array(exact, dtype=np.float64)
+        approx = np.array(approx, dtype=np.float64)
+
+        return calc_mape(exact, approx)
+
+    # TODO: this should be used when determining number of blocks
+    def get_n(self):
+        return self.run_params.cells
 
 class HPACKmeansInstance(HPACBenchmarkInstance):
     @dataclass
