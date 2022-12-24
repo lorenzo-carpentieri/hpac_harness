@@ -246,12 +246,12 @@ class iACTApproxParams(HPACApproxParams):
   def __init__(self, param, approx_args):
     self.name = "iact"
     self.rp = param['replacement_policy']
-    self.tpw = param['tables_per_warp']
-    self.threshold = param['threshold']
-    self.tsize = param['table_size']
-    self.ninputs = approx_args['input_num_items']
-    self.noutputs = approx_args['output_num_items']
-    self.blocksize = param['blocksize']
+    self.tpw = int(param['tables_per_warp'])
+    self.threshold = float(param['threshold'])
+    self.tsize = int(param['table_size'])
+    self.ninputs = int(approx_args['input_num_items'])
+    self.noutputs = int(approx_args['output_num_items'])
+    self.blocksize = int(param['blocksize'])
 
   # todo: is this needed?
   def get_technique_arg(self):
