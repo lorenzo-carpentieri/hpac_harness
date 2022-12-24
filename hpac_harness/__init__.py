@@ -368,7 +368,7 @@ class HPACBenchmarkInstance:
       if not region:
         region = "none"
       else:
-        region = region.label
+        region = region[0].label
       return (self.get_name(), region, self.get_error_type())
     def get_error_type(self):
         return self.error_metric
@@ -561,8 +561,8 @@ class HPACLeukocyteInstance(HPACBenchmarkInstance):
     class RunParams:
         input_data: str
         exact_results: str
-        num_frames: int
         num_cells: int
+        num_frames: int
 
     @dataclass
     class BuildParams:
@@ -949,7 +949,7 @@ class ApproxRegion:
 def find_approx_regions(src_dir, src_files):
     regions = []
     for f in src_files:
-        with open(src_dir/f, "r") as fd:
+        with open(f, "r", errors='ignore') as fd:
             for num, line  in enumerate(fd,1):
                 if ("//@APPROX") in line:
                     inputs=""
@@ -989,7 +989,7 @@ def apply_approx_technique(src_dir, src_files, regions, technique, param):
     assert elem, f"Specified technique '{technique[0]}' not found"
     for src in src_files:
         output_file = io.StringIO()
-        with open(src, "r") as fd:
+        with open(src, "r", errors="ignore") as fd:
             for num, line  in enumerate(fd,1):
                 technique_param = None
                 if (src == elem.file and num == elem.line_num):
