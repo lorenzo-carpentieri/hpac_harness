@@ -246,12 +246,12 @@ class iACTApproxParams(HPACApproxParams):
   def __init__(self, param, approx_args):
     self.name = "iact"
     self.rp = param['replacement_policy']
-    self.tpw = param['tables_per_warp']
-    self.threshold = param['threshold']
-    self.tsize = param['table_size']
-    self.ninputs = approx_args['input_num_items']
-    self.noutputs = approx_args['output_num_items']
-    self.blocksize = param['blocksize']
+    self.tpw = int(param['tables_per_warp'])
+    self.threshold = float(param['threshold'])
+    self.tsize = int(param['table_size'])
+    self.ninputs = int(approx_args['input_num_items'])
+    self.noutputs = int(approx_args['output_num_items'])
+    self.blocksize = int(param['blocksize'])
 
   # todo: is this needed?
   def get_technique_arg(self):
@@ -370,7 +370,7 @@ class HPACBenchmarkInstance:
       if not region:
         region = "none"
       else:
-        region = region.label
+        region = region[0].label
       return (self.get_name(), region, self.get_error_type())
     def get_error_type(self):
         return self.error_metric
@@ -563,8 +563,8 @@ class HPACLeukocyteInstance(HPACBenchmarkInstance):
     class RunParams:
         input_data: str
         exact_results: str
-        num_frames: int
         num_cells: int
+        num_frames: int
 
     @dataclass
     class BuildParams:
@@ -1039,7 +1039,7 @@ class ApproxRegion:
 def find_approx_regions(src_dir, src_files):
     regions = []
     for f in src_files:
-        with open(src_dir/f, "r") as fd:
+        with open(f, "r", errors='ignore') as fd:
             for num, line  in enumerate(fd,1):
                 if ("//@APPROX") in line:
                     inputs=""
@@ -1079,7 +1079,7 @@ def apply_approx_technique(src_dir, src_files, regions, technique, param):
     assert elem, f"Specified technique '{technique[0]}' not found"
     for src in src_files:
         output_file = io.StringIO()
-        with open(src, "r") as fd:
+        with open(src, "r", errors="ignore") as fd:
             for num, line  in enumerate(fd,1):
                 technique_param = None
                 if (src == elem.file and num == elem.line_num):
