@@ -335,6 +335,8 @@ class HPACBenchmarkInstance:
         return HPACBinomialOptionsInstance
       elif name == 'leukocyte':
         return HPACLeukocyteInstance
+      elif naem == 'lulesh':
+          return HPACLULESHInstance
       else:
         raise ValueError("No instance type for benchmark type "
                           f"{name} found."
@@ -650,6 +652,94 @@ class HPACLeukocyteInstance(HPACBenchmarkInstance):
     # TODO: this should be used when determining number of blocks
     def get_n(self):
         return self.run_params.cells
+
+class HPACLULESHInstance(HPACBenchmarkInstance):
+    @dataclass
+    class RunParams:
+        size: int
+        max_iterations: int
+        exact_results: str
+
+
+    @dataclass
+    class BuildParams:
+        executable_name: str
+        benchmark_directory: str
+
+    def __init__(self, name, region, config_dict, install_location=None):
+        super().__init__(name, region, config_dict)
+        self.command = None
+        run_config = config_dict['executable_arguments']
+        self.run_params = self.RunParams(
+                                         run_config['size'],
+                                         run_config['max_iterations'],
+                                         config_dict['exact_results']
+                                    )
+        self.build_params = self.BuildParams(config_dict['executable_name'],
+                                             config_dict['benchmark_directory']
+                                             )
+        self.install_location = install_location
+
+        self.runtime = 0
+        self.error_metric = "mape"
+
+    def get_run_command(self):
+        if not self.command:
+            exe = self.get_build_location() / Path(self.build_params.executable_name)
+            exe = exe.resolve()
+            runp = self.run_params
+            self.command =  sh.Command(exe).bake('-s', self.run_params.size,
+                                                 '-i', self.run_params.max_iterations
+                                                 )
+        return self.command
+
+    # TODO: this can probably be moved to the baseclass
+    def build(self, pre=None, post=None):
+        build_dir = self.get_build_location()
+        if not build_dir.exists():
+            build_dir.mkdir(parents=True, exist_ok=True)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        if pre:
+            pre()
+        builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
+        builder.build()
+        if post:
+            post()
+
+    # Given the stdout for this benchmark, return the runtime
+    def get_runtime(self, stdout):
+        stdout_lines = stdout.split('\n')
+        runtime = list(filter(lambda x: x.startswith('Elapsed time:'),
+                              stdout_lines)
+                       )
+        # HACK: the error in this benchmark comes from stdout, not file
+        self._stdout = stdout
+        return float(runtime[0].split()[3])
+
+    def _get_energy(self, stdout):
+        stdout_lines = stdout.split('\n')
+        runtime = list(filter(lambda x: x.strip().startswith('Final Origin Energy'),
+                              stdout_lines)
+                       )
+        return float(runtime[0].split()[4])
+
+    # given accurate and approx outputs, return error metric
+    def get_error(self):
+        assert self._stdout, "For this benchmark, get_runtime MUST be called before get_error"
+        e_file = open(self.get_exact_filepath(), 'r')
+
+        a_energy = self._get_energy(self._stdout)
+        approx = [a_energy]
+        exact = [float(e_file.read().split('\n')[0])]
+        exact = np.array(exact, dtype=np.float64)
+        approx = np.array(approx, dtype=np.float64)
+
+        return calc_mape(exact, approx)
+
+    # TODO: this should be used when determining number of blocks
+    def get_n(self):
+        return self.run_params.size**3
+
 
 class HPACKmeansInstance(HPACBenchmarkInstance):
     @dataclass
