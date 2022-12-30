@@ -153,8 +153,8 @@ class HPACApproxParams:
         pass
     @classmethod
     def create(cls, name, param, approx_args):
-      if 'name' in approx_args:
-          approx_args = aprox_args['name']
+      if name in approx_args:
+          approx_args = approx_args[name]
       if name == 'perfo':
         tech = param['technique']
         if tech == 'small':
@@ -314,12 +314,14 @@ class TAFApproxParams(HPACApproxParams):
   def get_hpac_build_params(self):
     return {
         'TAF_WIDTH': str(self.tw),
-        'SHARED_MEMORY_SIZE': str(self.get_table_size())
+        'SHARED_MEMORY_SIZE': str(self.get_table_size()),
+        'MAX_HIST_SIZE': str(self.hsize)
       }
 
   def get_table_size(self):
+      # 8*NTHREADS_PER_WARP*MAX_HIST_SIZE*n_output_values
       tables_per_block = (self.blocksize // 32)
-      table_size_bytes= self.noutputs * 4 * self.hsize
+      table_size_bytes= self.noutputs * 4 * self.hsize * 32
       ts_per_block = tables_per_block * table_size_bytes
       return int(ts_per_block)
 
@@ -718,11 +720,12 @@ class HPACLULESHInstance(HPACBenchmarkInstance):
     # Given the stdout for this benchmark, return the runtime
     def get_runtime(self, stdout):
         stdout_lines = stdout.split('\n')
-        runtime = list(filter(lambda x: x.startswith('Elapsed time:'),
+        runtime = list(filter(lambda x: x.startswith('Elapsed time'),
                               stdout_lines)
                        )
         # HACK: the error in this benchmark comes from stdout, not file
         self._stdout = stdout
+        print(self._stdout)
         return float(runtime[0].split()[3])
 
     def _get_energy(self, stdout):
@@ -980,7 +983,7 @@ class HPACInstaller:
         self.install_location = install_location
         self.build_cfg = self.get_build_cfg(install_location, clang_src, clang_version,
                                             enable_shared, device_stats, sm_size,
-                                            tables_per_warp, taf_width, otable_gmem
+                                            tables_per_warp, taf_width, other_options
                                             )
     def install(self, pre=None, post=None):
         if pre:
@@ -1015,7 +1018,7 @@ class HPACInstaller:
         add_to_env('CPATH', f'{self.install_location}/lib/clang/{self.build_cfg.clang_version}/include')
         add_to_env('LIBAPPROX_LOCATION', f"{self.install_location}/lib/")
 
-    def get_build_cfg(self, destination, clang_src, clang_version, enable_shared, device_stats, sm_size, tables_per_warp, taf_width, otable_gmem, other_options):
+    def get_build_cfg(self, destination, clang_src, clang_version, enable_shared, device_stats, sm_size, tables_per_warp, taf_width, other_options):
         options = {
             'CMAKE_INSTALL_PREFIX': destination,
             'LLVM_EXTERNAL_CLANG_SOURCE_DIR': clang_src,
