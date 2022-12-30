@@ -335,7 +335,7 @@ class HPACBenchmarkInstance:
         return HPACBinomialOptionsInstance
       elif name == 'leukocyte':
         return HPACLeukocyteInstance
-      elif naem == 'lulesh':
+      elif name == 'lulesh':
           return HPACLULESHInstance
       else:
         raise ValueError("No instance type for benchmark type "
