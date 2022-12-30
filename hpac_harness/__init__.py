@@ -153,6 +153,8 @@ class HPACApproxParams:
         pass
     @classmethod
     def create(cls, name, param, approx_args):
+      if 'name' in approx_args:
+          approx_args = aprox_args['name']
       if name == 'perfo':
         tech = param['technique']
         if tech == 'small':
@@ -311,8 +313,15 @@ class TAFApproxParams(HPACApproxParams):
 
   def get_hpac_build_params(self):
     return {
-      'TAF_WIDTH': str(self.tw)
+        'TAF_WIDTH': str(self.tw),
+        'SHARED_MEMORY_SIZE': str(self.get_table_size())
       }
+
+  def get_table_size(self):
+      tables_per_block = (self.blocksize // 32)
+      table_size_bytes= self.noutputs * 4 * self.hsize
+      ts_per_block = tables_per_block * table_size_bytes
+      return int(ts_per_block)
 
   def get_db_info(self):
     return (self.threshold, self.hsize, self.psize, self.tw)
@@ -964,14 +973,14 @@ class HPACNodeExperiment:
         db_conn.commit()
 
 class HPACInstaller:
-    def __init__(self, hpac_location, install_location, clang_src, clang_version, enable_shared=0, device_stats = 0, sm_size=0, tables_per_warp= 0, taf_width=32):
+    def __init__(self, hpac_location, install_location, clang_src, clang_version, enable_shared=0, device_stats = 0, sm_size=0, tables_per_warp= 0, taf_width=32, other_options = None):
         hpac_location = Path(hpac_location).resolve()
         install_location = Path(install_location).resolve()
         self.hpac_location = hpac_location
         self.install_location = install_location
         self.build_cfg = self.get_build_cfg(install_location, clang_src, clang_version,
                                             enable_shared, device_stats, sm_size,
-                                            tables_per_warp, taf_width
+                                            tables_per_warp, taf_width, otable_gmem
                                             )
     def install(self, pre=None, post=None):
         if pre:
@@ -1006,8 +1015,8 @@ class HPACInstaller:
         add_to_env('CPATH', f'{self.install_location}/lib/clang/{self.build_cfg.clang_version}/include')
         add_to_env('LIBAPPROX_LOCATION', f"{self.install_location}/lib/")
 
-    def get_build_cfg(self, destination, clang_src, clang_version, enable_shared, device_stats, sm_size, tables_per_warp, taf_width):
-        return CMakeBuildConfig({
+    def get_build_cfg(self, destination, clang_src, clang_version, enable_shared, device_stats, sm_size, tables_per_warp, taf_width, otable_gmem, other_options):
+        options = {
             'CMAKE_INSTALL_PREFIX': destination,
             'LLVM_EXTERNAL_CLANG_SOURCE_DIR': clang_src,
             'PACKAGE_VERSION': clang_version,
@@ -1016,7 +1025,10 @@ class HPACInstaller:
             'SHARED_MEMORY_SIZE': sm_size,
             'TABLES_PER_WARP': tables_per_warp,
             'TAF_WIDTH': taf_width
-            })
+            }
+        if other_options:
+            options.update(other_options)
+        return CMakeBuildConfig(options)
 
 def add_to_env(variable, value):
     if variable in os.environ:
