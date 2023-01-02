@@ -194,6 +194,8 @@ class HPACRuntimeEnvironment:
       os.environ['THREADS_PER_BLOCK'] = str(tpb)
       os.environ['NUM_BLOCKS'] = str(num_blocks)
       os.environ['NUM_THREADS'] = str(num_threads)
+      os.environ['OMP_PROC_BIND'] = 'true'
+      os.environ['OMP_PLACES'] = 'cores'
 
     @classmethod
     def calc_num_blocks(cls, items_per_thread, block_size, n):
