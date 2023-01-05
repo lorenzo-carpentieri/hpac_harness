@@ -249,6 +249,10 @@ class LargePerfoApproxParams(PerfoApproxParams):
 class iACTApproxParams(HPACApproxParams):
   def __init__(self, param, approx_args):
     self.name = "iact"
+    if hierarchy in exp_cfg:
+        self.hierarchy = exp_cfg['hierarchy']
+    else:
+        self.hierarchy = None
     self.rp = param['replacement_policy']
     self.tpw = int(param['tables_per_warp'])
     self.threshold = float(param['threshold'])
@@ -259,7 +263,7 @@ class iACTApproxParams(HPACApproxParams):
 
   # todo: is this needed?
   def get_technique_arg(self):
-    return None
+    return self.hierarchy
 
   def get_technique_tuple(self):
     return ("MEMO_IN", "memo(in)")
@@ -291,6 +295,10 @@ class iACTApproxParams(HPACApproxParams):
 class TAFApproxParams(HPACApproxParams):
   def __init__(self, param, approx_args):
     self.name = "taf"
+    if hierarchy in exp_cfg:
+        self.hierarchy = exp_cfg['hierarchy']
+    else:
+        self.hierarchy = None
     self.threshold = float(param['threshold'])
     self.hsize = int(param['history_size'])
     self.psize = int(param['prediction_size'])
@@ -301,7 +309,7 @@ class TAFApproxParams(HPACApproxParams):
 
   # todo: is this needed?
   def get_technique_arg(self):
-    return None
+    return self.hierarchy
 
   def get_technique_tuple(self):
     return ("MEMO_OUT", "memo(out)")
