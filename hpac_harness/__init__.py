@@ -763,6 +763,88 @@ class HPACLULESHInstance(HPACBenchmarkInstance):
         return self.run_params.size**3
 
 
+
+class HPACLavaMDInstance(HPACBenchmarkInstance):
+    @dataclass
+    class RunParams:
+        boxes1d: int
+        exact_results: str
+
+
+    @dataclass
+    class BuildParams:
+        executable_name: str
+        benchmark_directory: str
+        output_filename: str
+
+    def __init__(self, name, region, config_dict, install_location=None):
+        super().__init__(name, region, config_dict)
+        self.command = None
+        run_config = config_dict['executable_arguments']
+        self.run_params = self.RunParams(
+                                         run_config['boxes1d'],
+                                         config_dict['exact_results']
+                                    )
+        self.build_params = self.BuildParams(config_dict['executable_name'],
+                                             config_dict['benchmark_directory'],
+                                             config_dict['output_filename']
+                                             )
+        self.install_location = install_location
+
+        self.runtime = 0
+        self.error_metric = "mape"
+
+    def get_run_command(self):
+        if not self.command:
+            exe = self.get_build_location() / Path(self.build_params.executable_name)
+            exe = exe.resolve()
+            runp = self.run_params
+            self.command =  sh.Command(exe).bake('-boxes1d', self.run_params.boxes_1d)
+        return self.command
+
+    # TODO: this can probably be moved to the baseclass
+    def build(self, pre=None, post=None):
+        build_dir = self.get_build_location()
+        if not build_dir.exists():
+            build_dir.mkdir(parents=True, exist_ok=True)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        if pre:
+            pre()
+        builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
+        builder.build()
+        if post:
+            post()
+
+    # Given the stdout for this benchmark, return the runtime
+    def get_runtime(self, stdout):
+        stdout_lines = stdout.split('\n')
+        runtime = list(filter(lambda x: x.startswith('Device offloading time'),
+                              stdout_lines)
+                       )
+        return float(runtime[0].split()[3])
+
+    # given accurate and approx outputs, return error metric
+    def get_error(self):
+        exact_file = self.get_exact_filepath()
+        approx_file = self.get_approx_filepath()
+        with open(exact_file, 'rb') as exact, open(approx_file, 'rb') as approx:
+            exact_data = exact.read()
+            approx_data = approx.read()
+
+            e_len, e_type = struct.unpack('@QI', exact_data[0:8])
+            a_len, a_type = struct.unpack('@QI', approx_data[0:8])
+
+            assert (e_len == a_len) and (e_type == a_type), "Exact and approx files do not have same type or length"
+
+            e_data = np.frombuffer(exact_data[8::], dtype=np.float32)
+            a_data = np.frombuffer(approx_data[8::], dtype=np.float32)
+            mape = calc_mape(e_data, a_data)
+        return mape
+    # TODO: this should be used when determining number of blocks
+    def get_n(self):
+        return self.run_params.size**3
+
+
 class HPACKmeansInstance(HPACBenchmarkInstance):
     @dataclass
     class RunParams:
