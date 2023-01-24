@@ -358,6 +358,8 @@ class HPACBenchmarkInstance:
         return HPACLeukocyteInstance
       elif name == 'lulesh':
           return HPACLULESHInstance
+      elif name == 'lavaMD':
+          return HPACLavaMDInstance
       else:
         raise ValueError("No instance type for benchmark type "
                           f"{name} found."
@@ -799,7 +801,7 @@ class HPACLavaMDInstance(HPACBenchmarkInstance):
             exe = self.get_build_location() / Path(self.build_params.executable_name)
             exe = exe.resolve()
             runp = self.run_params
-            self.command =  sh.Command(exe).bake('-boxes1d', self.run_params.boxes_1d)
+            self.command =  sh.Command(exe).bake('-boxes1d', self.run_params.boxes1d)
         return self.command
 
     # TODO: this can probably be moved to the baseclass
@@ -831,13 +833,13 @@ class HPACLavaMDInstance(HPACBenchmarkInstance):
             exact_data = exact.read()
             approx_data = approx.read()
 
-            e_len, e_type = struct.unpack('@L', exact_data[0:8])
-            a_len, a_type = struct.unpack('@L', approx_data[0:8])
+            e_len = struct.unpack('@L', exact_data[0:8])
+            a_len = struct.unpack('@L', approx_data[0:8])
 
-            assert (e_len == a_len) and (e_type == a_type), "Exact and approx files do not have same type or length"
+            assert (e_len == a_len), "Exact and approx files do not have same length"
 
-            e_data = np.frombuffer(exact_data[8::], dtype=np.float32)
-            a_data = np.frombuffer(approx_data[8::], dtype=np.float32)
+            e_data = np.frombuffer(exact_data[8::], dtype=np.float64)
+            a_data = np.frombuffer(approx_data[8::], dtype=np.float64)
             mape = calc_mape(e_data, a_data)
         return mape
     # TODO: this should be used when determining number of blocks
