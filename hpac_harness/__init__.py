@@ -249,10 +249,10 @@ class LargePerfoApproxParams(PerfoApproxParams):
 class iACTApproxParams(HPACApproxParams):
   def __init__(self, param, approx_args):
     self.name = "iact"
-    if hierarchy in exp_cfg:
-        self.hierarchy = exp_cfg['hierarchy']
+    if 'hierarchy' in param:
+        self.hierarchy = param['hierarchy']
     else:
-        self.hierarchy = None
+        self.hierarchy = 'thread'
     self.rp = param['replacement_policy']
     self.tpw = int(param['tables_per_warp'])
     self.threshold = float(param['threshold'])
@@ -266,7 +266,7 @@ class iACTApproxParams(HPACApproxParams):
     return self.hierarchy
 
   def get_technique_tuple(self):
-    return ("MEMO_IN", "memo(in)")
+    return ("MEMO_IN", "memo(in:%s)")
 
   def configure_environment(self):
     os.environ['TABLE_SIZE'] = str(self.tsize)
@@ -288,17 +288,17 @@ class iACTApproxParams(HPACApproxParams):
       }
 
   def get_db_info(self):
-    return (self.tsize, self.threshold, self.tpw, self.rp)
+    return (self.tsize, self.threshold, self.tpw, self.rp, self.hierarchy)
   def get_name(self):
     return self.name
 
 class TAFApproxParams(HPACApproxParams):
   def __init__(self, param, approx_args):
     self.name = "taf"
-    if hierarchy in exp_cfg:
-        self.hierarchy = exp_cfg['hierarchy']
+    if 'hierarchy' in param:
+        self.hierarchy = param['hierarchy']
     else:
-        self.hierarchy = None
+        self.hierarchy = 'thread'
     self.threshold = float(param['threshold'])
     self.hsize = int(param['history_size'])
     self.psize = int(param['prediction_size'])
@@ -312,7 +312,7 @@ class TAFApproxParams(HPACApproxParams):
     return self.hierarchy
 
   def get_technique_tuple(self):
-    return ("MEMO_OUT", "memo(out)")
+    return ("MEMO_OUT", "memo(out:%s)")
 
   def configure_environment(self):
     os.environ['THRESHOLD'] = str(self.threshold)
@@ -336,7 +336,7 @@ class TAFApproxParams(HPACApproxParams):
       return int(ts_per_block)
 
   def get_db_info(self):
-    return (self.threshold, self.hsize, self.psize, self.tw)
+    return (self.threshold, self.hsize, self.psize, self.tw, self.hierarchy)
   def get_name(self):
     return self.name
 
@@ -1190,7 +1190,7 @@ def apply_approx_technique(src_dir, src_files, regions, technique, param):
             for num, line  in enumerate(fd,1):
                 technique_param = None
                 if (src == elem.file and num == elem.line_num):
-                    if approx[0] in ["sPerfo", "lPerfo"]:
+                    if approx[0] in ["sPerfo", "lPerfo", 'MEMO_IN', 'MEMO_OUT']:
                         # output_file.write("int __approx_step__ = approx_rt_get_step();\n")
                         technique_param = f'{param}'
                     elif approx[0] in ["rPerfo", "fPerfo", "iPerfo"]:
@@ -1213,7 +1213,7 @@ def apply_approx_technique(src_dir, src_files, regions, technique, param):
         with open(src, 'w') as fd:
             fd.write(output_file.read())
 
-approximate_techniques = [("iACT", "memo(in)"), ("TAF", "memo(out)"), ("sPerfo" , "perfo(small:%s)"), ("lPerfo", "perfo(large:%s)"), ("rPerfo", "perfo(rand:__approx_percentage__)"), ("iPerfo",  "perfo(init:%s)"), ("fPerfo", "perfo(fini:%s)") ]
+approximate_techniques = [("iACT", "memo(in:%s)"), ("TAF", "memo(out:%s)"), ("sPerfo" , "perfo(small:%s)"), ("lPerfo", "perfo(large:%s)"), ("rPerfo", "perfo(rand:__approx_percentage__)"), ("iPerfo",  "perfo(init:%s)"), ("fPerfo", "perfo(fini:%s)") ]
 
 IN_PATTERN='IN\((.*?)\)\s+'
 OUT_PATTERN='OUT\((.*?)\)\s+'
