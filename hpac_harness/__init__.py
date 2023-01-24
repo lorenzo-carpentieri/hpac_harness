@@ -831,8 +831,8 @@ class HPACLavaMDInstance(HPACBenchmarkInstance):
             exact_data = exact.read()
             approx_data = approx.read()
 
-            e_len, e_type = struct.unpack('@QI', exact_data[0:8])
-            a_len, a_type = struct.unpack('@QI', approx_data[0:8])
+            e_len, e_type = struct.unpack('@L', exact_data[0:8])
+            a_len, a_type = struct.unpack('@L', approx_data[0:8])
 
             assert (e_len == a_len) and (e_type == a_type), "Exact and approx files do not have same type or length"
 
