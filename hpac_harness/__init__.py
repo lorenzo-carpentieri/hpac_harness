@@ -253,6 +253,7 @@ class iACTApproxParams(HPACApproxParams):
         self.hierarchy = param['hierarchy']
     else:
         self.hierarchy = 'thread'
+    self.warpsize = int(param['warp_size'])
     self.rp = param['replacement_policy']
     self.tpw = int(param['tables_per_warp'])
     self.threshold = float(param['threshold'])
@@ -276,7 +277,7 @@ class iACTApproxParams(HPACApproxParams):
     os.environ['OUTPUT_ENTRY_SIZE'] = str(self.noutputs)
 
   def get_table_size(self):
-    tables_per_block = (self.blocksize // 32) * self.tpw
+    tables_per_block = (self.blocksize // self.warp_size) * self.tpw
     table_size_bytes= self.ninputs * 4 * self.tsize
     ts_per_block = tables_per_block * table_size_bytes
     return int(ts_per_block)
@@ -299,6 +300,7 @@ class TAFApproxParams(HPACApproxParams):
         self.hierarchy = param['hierarchy']
     else:
         self.hierarchy = 'thread'
+    self warpsize = int(param['warp_size'])
     self.threshold = float(param['threshold'])
     self.hsize = int(param['history_size'])
     self.psize = int(param['prediction_size'])
@@ -330,8 +332,8 @@ class TAFApproxParams(HPACApproxParams):
 
   def get_table_size(self):
       # 8*NTHREADS_PER_WARP*MAX_HIST_SIZE*n_output_values
-      tables_per_block = (self.blocksize // 32)
-      table_size_bytes= self.noutputs * 4 * self.hsize * 32
+      tables_per_block = (self.blocksize // self.warpsize)
+      table_size_bytes= self.noutputs * 4 * self.hsize * self.warpsize
       ts_per_block = tables_per_block * table_size_bytes
       return int(ts_per_block)
 
