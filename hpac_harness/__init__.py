@@ -300,7 +300,7 @@ class TAFApproxParams(HPACApproxParams):
         self.hierarchy = param['hierarchy']
     else:
         self.hierarchy = 'thread'
-    self warpsize = int(param['warp_size'])
+    self.warpsize = int(param['warp_size'])
     self.threshold = float(param['threshold'])
     self.hsize = int(param['history_size'])
     self.psize = int(param['prediction_size'])
