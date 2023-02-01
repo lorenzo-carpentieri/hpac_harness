@@ -1097,6 +1097,8 @@ class HPACInstaller:
 
     def setup_build_environment(self):
         path_re = re.compile('export PATH=(\s+|\S+):\$PATH')
+        hpac_arch_re = re.compile('export HPAC_GPU_ARCH=(\S+)')
+        hpac_sm_re = re.compile('export HPAC_GPU_SM=(\S+)')
         os.environ['CC'] = 'clang'
         os.environ['CPP'] = 'clang++'
         os.environ['CXX'] = 'clang++'
@@ -1108,6 +1110,20 @@ class HPACInstaller:
                 hpac_build_dir = Path(self.hpac_location) / hpac_build_dir
                 add_to_env('PATH', str(hpac_build_dir / Path('bin')))
                 add_to_env('LD_LIBRARY_PATH', str(hpac_build_dir / Path('lib')))
+                continue
+
+            result = hpac_arch_re.search(line)
+            if result != None:
+              hpac_arch = result.group(1)
+              add_to_env('HPAC_GPU_ARCH', hpac_arch)
+              continue
+
+            result = hpac_sm_re.search(line)
+            if result != None:
+              hpac_sm = result.group(1)
+              add_to_env('HPAC_GPU_SM', hpac_sm)
+              continue
+
 
     def setup_experiment_environment(self):
         add_to_env('LD_LIBRARY_PATH', f'{self.install_location}/lib')
