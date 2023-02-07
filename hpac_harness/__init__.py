@@ -866,11 +866,11 @@ class HPACLavaMDStatsCollectingInstance(HPACLavaMDInstance):
         file_name = Path('thread_stats.csv')
         approx_info = pd.read_csv(file_location / file_name)
         # NOTE: Bad to assume fixed warp size. Oh well
-        imb_all = np.array((len(approx_info//32), 3), dtype=np.float64)
-        for warp_start in range(0,len(approx_info), 32):
+        imb_all = np.ndarray((min(10000,len(approx_info)//32), 3), dtype=np.float64)
+        for warp_start in range(0,min(10000*32,len(approx_info)), 32):
             warp_num = warp_start // 32
             imb, ratio = calc_imbalance_ratio(warp_start, warp_start+32, approx_info)
-            imb_all[warp_num] = (warp_num, imb, ratio)
+            imb_all[warp_num] = [int(warp_num), float(imb), float(ratio)]
         return imb_all
 
 class HPACKmeansInstance(HPACBenchmarkInstance):
@@ -1125,7 +1125,7 @@ class HPACStatsCollectingNodeExperiment(HPACNodeExperiment):
         for tn, aib in enumerate(self.aib_info):
             for warp_info in aib:
                 warp_num, imbalance, ratio = warp_info
-                info.append([self.exp_num, tn+1, int(warp_num), aib, ratio])
+                info.append([self.exp_num, tn+1, int(warp_num), imbalance, ratio])
 
         cur = db_conn.cursor()
         insert = ['?'] * len(info[0])
