@@ -935,7 +935,8 @@ class ProgramBuilder:
         # TODO: Errors
       try:
         self.build_command()
-      except sh.ErrorReturnCode_2 as e:
+      except Exception as e:
+        print(e.stdout)
         print(e.stderr)
         sys.exit(2)
     def configure(self):
@@ -955,6 +956,8 @@ class CMakeBuildConfig:
       for o,v in self.opts.items():
         opts.append(f'-D{o}={str(v)}')
       return opts
+    def add_opt(self, key, value):
+      self.opts[key] = value
 
 
 
@@ -1115,13 +1118,15 @@ class HPACInstaller:
             result = hpac_arch_re.search(line)
             if result != None:
               hpac_arch = result.group(1)
-              add_to_env('HPAC_GPU_ARCH', hpac_arch)
+              set_env('HPAC_GPU_ARCH', hpac_arch)
+              self.build_cfg.add_opt('GPU_ARCH', hpac_arch)
               continue
 
             result = hpac_sm_re.search(line)
             if result != None:
               hpac_sm = result.group(1)
-              add_to_env('HPAC_GPU_SM', hpac_sm)
+              set_env('HPAC_GPU_SM', hpac_sm)
+              self.build_cfg.add_opt('GPU_SM', hpac_sm)
               continue
 
 
@@ -1151,6 +1156,8 @@ def add_to_env(variable, value):
     else:
         os.environ[variable] = f"{value}"
 
+def set_env(variable, value):
+    os.environ[variable] = f"{value}"
 
 @dataclass
 class ApproxRegion:
