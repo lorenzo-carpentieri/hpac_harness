@@ -1123,7 +1123,7 @@ class HPACStatsCollectingNodeExperiment:
         for tn, aib in enumerate(self.aib_info):
             for warp_info in aib:
                 warp_num, imbalance, ratio = warp_info
-                info.append([self.exp_num, tn+1, warp_num, aib, ratio])
+                info.append([self.exp_num, tn+1, int(warp_num), aib, ratio])
 
         cur = db_conn.cursor()
         insert = ['?'] * len(info[0])
