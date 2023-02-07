@@ -185,14 +185,14 @@ class HPACRuntimeEnvironment:
 
     def configure_environment(self, items_per_thread, tpb=None, num_blocks=None):
       self.items_per_thread = int(items_per_thread)
-      if not tpb:
-          tpb = self.tpb
-      if not num_blocks:
-          num_blocks = self.num_blocks
+      if tpb:
+          self.tpb = tpb
+      if num_blocks:
+          self.num_blocks = num_blocks
 
-      num_threads = tpb * num_blocks
-      os.environ['THREADS_PER_BLOCK'] = str(tpb)
-      os.environ['NUM_BLOCKS'] = str(num_blocks)
+      num_threads = self.tpb * self.num_blocks
+      os.environ['THREADS_PER_BLOCK'] = str(self.tpb)
+      os.environ['NUM_BLOCKS'] = str(self.num_blocks)
       os.environ['NUM_THREADS'] = str(num_threads)
       os.environ['OMP_PROC_BIND'] = 'true'
       os.environ['OMP_PLACES'] = 'cores'
