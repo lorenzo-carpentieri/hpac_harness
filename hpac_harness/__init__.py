@@ -22,6 +22,14 @@ from typing import Union
 import itertools
 import copy
 
+def calc_imbalance_ratio(start, end, df):
+  dd = df[start:end]
+  denom = dd['RATIO'].mean()
+  if denom == 0:
+    return (0, 0)
+  ratio = dd['APPROX'].sum() / (dd['APPROX'].sum() + dd['ACCURATE'].sum())
+  return max(dd['RATIO'])/dd['RATIO'].mean(), ratio
+
 @dataclass
 class ExperimentConfiguration:
     benchmark_name: str
@@ -362,6 +370,8 @@ class HPACBenchmarkInstance:
           return HPACLULESHInstance
       elif name == 'lavaMD':
           return HPACLavaMDInstance
+      elif name == 'lavaMD_stats':
+          return HPACLavaMDStatsCollectingInstance
       else:
         raise ValueError("No instance type for benchmark type "
                           f"{name} found."
@@ -848,6 +858,18 @@ class HPACLavaMDInstance(HPACBenchmarkInstance):
     def get_n(self):
         return self.run_params.size**3
 
+class HPACLavaMDStatsCollectingInstance(HPACLavaMDInstance):
+    def __init__(self, name, region, config_dict, install_location=None):
+        super().__init__(name, region, config_dict)
+    def get_imbalance(self):
+        approx_info = pd.read_csv('thread_stats.csv')
+        # NOTE: Bad to assume fixed warp size. Oh well
+        imb_all = np.array((len(approx_info//32), 3), dtype=np.float64)
+        for warp_start in range(0,len(approx_info), 32):
+            warp_num = warp_start // 32
+            imb, ratio = calc_imbalance_ratio(warp_start, warp_start+32, approx_info)
+            imb_all[warp_num] = (warp_num, imb, ratio)
+        return imb_all
 
 class HPACKmeansInstance(HPACBenchmarkInstance):
     @dataclass
@@ -1073,6 +1095,42 @@ class HPACNodeExperiment:
         insert = ','.join(insert)
         cur.executemany(f'INSERT INTO {table_name} VALUES({insert})', info)
         db_conn.commit()
+
+class HPACStatsCollectingNodeExperiment:
+    def __init__(self, exp_num, instance, rtenv, approx_params, db_writer, num_trials):
+        super().__init__(exp_num, instance, rtenv, approx_params, db_writer, num_trials)
+
+    def run_trials(self, num_trials):
+        self.approx_params.configure_environment()
+        self.aib_info = list()
+        cmd_str = str(self.instance.get_run_command())
+        trials = list()
+        self.start()
+        for t in range(num_trials):
+            trial_output = self.instance.run_trial()
+            runtime = self.instance.get_runtime(trial_output)
+            error = self.instance.get_error()
+            aib = self.instance.get_imbalance()
+            self.aib_info.append(aib)
+            trials.append((runtime, error))
+        self.trials = trials
+        self.stop()
+        return trials
+
+    def write_info_to_db(self, db_conn, table_name, trial_info = None):
+        super().write_info_to_db(db_conn, table_name, trial_info)
+        info = list()
+        for tn, aib in enumerate(self.aib_info):
+            for warp_info in aib:
+                warp_num, imbalance, ratio = warp_info
+                info.append([self.exp_num, tn+1, warp_num, aib, ratio])
+
+        cur = db_conn.cursor()
+        insert = ['?'] * len(info[0])
+        insert = ','.join(insert)
+        cur.executemany(f'INSERT INTO warp_approx_stats VALUES({insert})', info)
+        db_conn.commit()
+
 
 class HPACInstaller:
     def __init__(self, hpac_location, install_location, clang_src, clang_version, enable_shared=0, device_stats = 0, sm_size=0, tables_per_warp= 0, taf_width=32, other_options = None):
