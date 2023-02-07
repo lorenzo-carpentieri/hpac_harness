@@ -1096,7 +1096,7 @@ class HPACNodeExperiment:
         cur.executemany(f'INSERT INTO {table_name} VALUES({insert})', info)
         db_conn.commit()
 
-class HPACStatsCollectingNodeExperiment:
+class HPACStatsCollectingNodeExperiment(HPACNodeExperiment):
     def __init__(self, exp_num, instance, rtenv, approx_params, db_writer, num_trials):
         super().__init__(exp_num, instance, rtenv, approx_params, db_writer, num_trials)
 
