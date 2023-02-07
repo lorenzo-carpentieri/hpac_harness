@@ -862,7 +862,9 @@ class HPACLavaMDStatsCollectingInstance(HPACLavaMDInstance):
     def __init__(self, name, region, config_dict, install_location=None):
         super().__init__(name, region, config_dict)
     def get_imbalance(self):
-        approx_info = pd.read_csv('thread_stats.csv')
+        file_location = self.get_approx_filepath().parent
+        file_name = Path('thread_stats.csv')
+        approx_info = pd.read_csv(file_location / file_name)
         # NOTE: Bad to assume fixed warp size. Oh well
         imb_all = np.array((len(approx_info//32), 3), dtype=np.float64)
         for warp_start in range(0,len(approx_info), 32):
