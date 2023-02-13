@@ -962,8 +962,7 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
       cur = db_conn.cursor()
       cur.execute(f'create table if not exists {table_name} (exp_num integer, num_converged integer)')
       cur.execute(f'INSERT INTO {table_name} VALUES(?, ?)', (exp_num, self.nloops))
-
-
+      db_conn.commit()
 
     # given accurate and approx outputs, return error metric
     def get_error(self):
