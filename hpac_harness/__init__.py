@@ -665,7 +665,6 @@ class HPACLeukocyteInstance(HPACBenchmarkInstance):
         approx = []
         for line in e_file:
           spl = line.strip().split(',')
-          print(spl)
           d1 = float(spl[1])
           d2 = float(spl[2])
           exact.append(d1)
@@ -749,7 +748,6 @@ class HPACLULESHInstance(HPACBenchmarkInstance):
                        )
         # HACK: the error in this benchmark comes from stdout, not file
         self._stdout = stdout
-        print(self._stdout)
         return float(runtime[0].split()[3])
 
     def _get_energy(self, stdout):
@@ -860,7 +858,7 @@ class HPACLavaMDInstance(HPACBenchmarkInstance):
 
 class HPACLavaMDStatsCollectingInstance(HPACLavaMDInstance):
     def __init__(self, name, region, config_dict, install_location=None):
-        super().__init__(name, region, config_dict)
+        super().__init__(name, region, config_dict, install_location)
     def get_imbalance(self):
         file_location = self.get_approx_filepath().parent
         file_name = Path('thread_stats.csv')
