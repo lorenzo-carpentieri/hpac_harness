@@ -22,6 +22,8 @@ from typing import Union
 import itertools
 import copy
 
+APPROX_TECNHIQUE='Default'
+
 def calc_imbalance_ratio(start, end, df):
   dd = df[start:end]
   denom = dd['RATIO'].mean()
@@ -161,17 +163,23 @@ class HPACApproxParams:
         pass
     @classmethod
     def create(cls, name, param, approx_args):
+      global APPROX_TECHNIQUE
+
       if name in approx_args:
           approx_args = approx_args[name]
       if name == 'perfo':
         tech = param['technique']
         if tech == 'small':
+            APPROX_TECHNIQUE = 'perfo:small'
             return SmallPerfoApproxParams(param)
         elif tech == 'large':
+            APPROX_TECHNIQUE = 'perfo:large'
             return LargePerfoApproxParams(param)
       elif name == 'iact':
+        APPROX_TECHNIQUE = 'iact'
         return iACTApproxParams(param, approx_args)
       elif name == 'taf':
+        APPROX_TECHNIQUE = 'taf'
         return TAFApproxParams(param, approx_args)
       else:
         raise ValueError(f"Incorrect perfo type: {name}")
@@ -378,6 +386,9 @@ class HPACBenchmarkInstance:
                           )
     def get_name(self):
       return self.name
+
+    def write_info_to_db(self, db_conn, exp_num):
+      pass
 
     def get_region(self):
         return self.region
@@ -860,6 +871,7 @@ class HPACLavaMDStatsCollectingInstance(HPACLavaMDInstance):
     def __init__(self, name, region, config_dict, install_location=None):
         super().__init__(name, region, config_dict, install_location)
     def get_imbalance(self):
+        # TODO: Base StatsCollectingClass that has get_stats_filepath like we have
         file_location = self.get_approx_filepath().parent
         file_name = Path('thread_stats.csv')
         approx_info = pd.read_csv(file_location / file_name)
@@ -891,6 +903,7 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
     def __init__(self, name, region, config_dict, install_location=None):
         super().__init__(name, region, config_dict)
         self.command = None
+        self.nconverged = 0
         run_config = config_dict['executable_arguments']
         self.run_params = self.RunParams(config_dict['input_data'],
                                          config_dict['exact_results'],
@@ -936,8 +949,18 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
     # Given the stdout for this benchmark, return the runtime
     def get_runtime(self, stdout):
         stdout_lines = stdout.split('\n')
+        nloops = list(filter(lambda x: x.startswith('Kmeans converged'), stdout_lines))
+        self.nloops = int(nloops[0].split()[4])
         runtime = list(filter(lambda x: x.startswith('Kmeans core'), stdout_lines))
         return float(runtime[0].split()[3])
+
+    def write_info_to_db(self, db_conn, exp_num):
+      global APPROX_TECHNIQUE
+      table_name = f'kmeans_{APPROX_TECHNIQUE}'
+      cur = db_conn.cursor()
+      cur.execute(f'create table if not exists {table_name} (exp_num integer, num_converged integer)')
+      cur.execute(f'INSERT INTO {table_name} VALUES(?, ?)', (exp_num, self.nloops))
+      db_conn.commit()
 
     # given accurate and approx outputs, return error metric
     def get_error(self):
@@ -1095,6 +1118,11 @@ class HPACNodeExperiment:
         insert = ','.join(insert)
         cur.executemany(f'INSERT INTO {table_name} VALUES({insert})', info)
         db_conn.commit()
+
+        # Some benchmarks have extra information to write to the db.
+        # For instance, in K-Means we are interested in the number of
+        # iterations to convergence.
+        self.instance.write_info_to_db(db_conn, self.exp_num)
 
 class HPACStatsCollectingNodeExperiment(HPACNodeExperiment):
     def __init__(self, exp_num, instance, rtenv, approx_params, db_writer, num_trials):
