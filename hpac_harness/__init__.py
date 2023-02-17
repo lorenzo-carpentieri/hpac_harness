@@ -359,10 +359,10 @@ class TAFApproxParams(HPACApproxParams):
     return self.name
 
 class HPACBenchmarkInstance:
-    def __init__(self, name, region, config_dict):
+    def __init__(self, name, region, config_dict, install_location = None):
       self.name = name
       self.region = region
-      self.install_location = None
+      self.install_location = install_location
       self.error_metric = None
     @classmethod
     def get_instance_class(cls, name):
@@ -380,6 +380,8 @@ class HPACBenchmarkInstance:
           return HPACLavaMDInstance
       elif name == 'lavaMD_stats':
           return HPACLavaMDStatsCollectingInstance
+      elif name == 'miniFE':
+        return HPACMiniFEInstance
       else:
         raise ValueError("No instance type for benchmark type "
                           f"{name} found."
@@ -448,7 +450,7 @@ class HPACBinomialOptionsInstance(HPACBenchmarkInstance):
     output_filename: str
 
   def __init__(self, name, region, config_dict, install_location=None):
-    super().__init__(name, region, config_dict)
+    super().__init__(name, region, config_dict, install_location)
     self.command = None
     run_config = config_dict['executable_arguments']
     self.run_params = self.RunParams(config_dict['input_data'],
@@ -539,7 +541,7 @@ class HPACBlackscholesInstance(HPACBenchmarkInstance):
     output_filename: str
 
   def __init__(self, name, region, config_dict, install_location=None):
-    super().__init__(name, region, config_dict)
+    super().__init__(name, region, config_dict, install_location)
     self.command = None
     run_config = config_dict['executable_arguments']
     self.run_params = self.RunParams(config_dict['input_data'],
@@ -619,7 +621,7 @@ class HPACLeukocyteInstance(HPACBenchmarkInstance):
         output_filename: str
 
     def __init__(self, name, region, config_dict, install_location=None):
-        super().__init__(name, region, config_dict)
+        super().__init__(name, region, config_dict, install_location)
         self.command = None
         run_config = config_dict['executable_arguments']
         self.run_params = self.RunParams(config_dict['input_data'],
@@ -712,7 +714,7 @@ class HPACLULESHInstance(HPACBenchmarkInstance):
         benchmark_directory: str
 
     def __init__(self, name, region, config_dict, install_location=None):
-        super().__init__(name, region, config_dict)
+        super().__init__(name, region, config_dict, install_location)
         self.command = None
         run_config = config_dict['executable_arguments']
         self.run_params = self.RunParams(
@@ -801,7 +803,7 @@ class HPACLavaMDInstance(HPACBenchmarkInstance):
         output_filename: str
 
     def __init__(self, name, region, config_dict, install_location=None):
-        super().__init__(name, region, config_dict)
+        super().__init__(name, region, config_dict, install_location)
         self.command = None
         run_config = config_dict['executable_arguments']
         self.run_params = self.RunParams(
@@ -901,7 +903,7 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
         output_filename: str
 
     def __init__(self, name, region, config_dict, install_location=None):
-        super().__init__(name, region, config_dict)
+        super().__init__(name, region, config_dict, install_location)
         self.command = None
         self.nconverged = 0
         run_config = config_dict['executable_arguments']
@@ -969,6 +971,86 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
     # TODO: this should be used when determining number of blocks
     def get_n(self):
         return self.run_params.num_points
+
+
+class HPACMiniFEInstance(HPACBenchmarkInstance):
+    @dataclass
+    class RunParams:
+        exact_results: str
+        num_rows: int
+        nx: int
+        ny: int
+        nz: int
+
+    @dataclass
+    class BuildParams:
+        executable_name: str
+        benchmark_directory: str
+
+    def __init__(self, name, region, config_dict, install_location=None):
+        super().__init__(name, region, config_dict, install_location)
+        self.command = None
+        run_config = config_dict['executable_arguments']
+        self.run_params = self.RunParams(config_dict['exact_results'],
+                                         run_configh['num_rows'],
+                                         run_config['nx'],
+                                         run_config['ny'],
+                                         run_config['nz']
+                                    )
+        self.build_params = self.BuildParams(config_dict['executable_name'],
+                                             config_dict['benchmark_directory']
+                                             )
+        self.install_location = install_location
+
+        self.runtime = 0
+        self.error_metric = "mape"
+
+    def get_run_command(self):
+        if not self.command:
+            exe = self.get_build_location() / Path(self.build_params.executable_name)
+            exe = exe.resolve()
+            runp = self.run_params
+            self.command =  sh.Command(exe).bake('-nx', runp.nx,
+                                                 '-ny', runp.ny,
+                                                 '-nz', runp.nz
+                                                 )
+        return self.command
+
+    def build(self, pre=None, post=None):
+        build_dir = self.get_build_location()
+        if not build_dir.exists():
+            build_dir.mkdir(parents=True, exist_ok=True)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        if pre:
+            pre()
+        builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
+        builder.build()
+        if post:
+            post()
+
+    # Given the stdout for this benchmark, return the runtime
+    def get_runtime(self, stdout):
+        stdout_lines = stdout.split('\n')
+        runtime = filter(lambda x: x.startswith('SOLVE TIME'), stdout_lines)
+        self._stdout = stdout_lines
+        return float(runtime[0].split()[2])
+
+    def write_info_to_db(self, db_conn, exp_num):
+      pass
+
+    # given accurate and approx outputs, return error metric
+    def get_error(self):
+      error = filter(lambda x: x.startswith('Final Resid Norm'), self._stdout)
+      error = error.split()[3]
+      approx_residual = np.array(float(error))
+      exact_file = open(self.get_exact_filepath(), 'r')
+      exact_residual = float(exact_file.read().strip())
+      exact_file.close()
+      return calc_mape(exact_residual, approx_residual)
+
+    # TODO: this should be used when determining number of blocks
+    def get_n(self):
+        return self.run_params.num_rows
 
 class ProgramBuilder:
     def __init__(self, build_directory):
