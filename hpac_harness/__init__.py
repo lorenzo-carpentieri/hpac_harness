@@ -194,10 +194,11 @@ class HPACApproxParams:
         pass
 
 class HPACRuntimeEnvironment:
-    def __init__(self, threads_per_block, num_blocks):
+    def __init__(self, threads_per_block, num_blocks, num_cpu_threads):
         self.tpb = int(threads_per_block)
         self.num_blocks = int(num_blocks)
         self.num_threads = int(threads_per_block * num_blocks)
+        self.num_cpu_threads = num_cpu_threads
 
     def configure_environment(self, items_per_thread, tpb=None, num_blocks=None):
       self.items_per_thread = int(items_per_thread)
@@ -212,6 +213,7 @@ class HPACRuntimeEnvironment:
       os.environ['NUM_THREADS'] = str(num_threads)
       os.environ['OMP_PROC_BIND'] = 'true'
       os.environ['OMP_PLACES'] = 'cores'
+      os.environ['OMP_NUM_THREADS'] = str(self.num_cpu_threads)
 
     @classmethod
     def calc_num_blocks(cls, items_per_thread, block_size, n):
@@ -992,7 +994,7 @@ class HPACMiniFEInstance(HPACBenchmarkInstance):
         self.command = None
         run_config = config_dict['executable_arguments']
         self.run_params = self.RunParams(config_dict['exact_results'],
-                                         run_configh['num_rows'],
+                                         run_config['num_rows'],
                                          run_config['nx'],
                                          run_config['ny'],
                                          run_config['nz']
@@ -1031,7 +1033,7 @@ class HPACMiniFEInstance(HPACBenchmarkInstance):
     # Given the stdout for this benchmark, return the runtime
     def get_runtime(self, stdout):
         stdout_lines = stdout.split('\n')
-        runtime = filter(lambda x: x.startswith('SOLVE TIME'), stdout_lines)
+        runtime = list(filter(lambda x: x.startswith('SOLVE TIME'), stdout_lines))
         self._stdout = stdout_lines
         return float(runtime[0].split()[2])
 
@@ -1040,8 +1042,8 @@ class HPACMiniFEInstance(HPACBenchmarkInstance):
 
     # given accurate and approx outputs, return error metric
     def get_error(self):
-      error = filter(lambda x: x.startswith('Final Resid Norm'), self._stdout)
-      error = error.split()[3]
+      error = list(filter(lambda x: x.startswith('Final Resid Norm'), self._stdout))
+      error = error[0].split()[3]
       approx_residual = np.array(float(error))
       exact_file = open(self.get_exact_filepath(), 'r')
       exact_residual = float(exact_file.read().strip())
