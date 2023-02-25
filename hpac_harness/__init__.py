@@ -295,7 +295,7 @@ class iACTApproxParams(HPACApproxParams):
     os.environ['OUTPUT_ENTRY_SIZE'] = str(self.noutputs)
 
   def get_table_size(self):
-    tables_per_block = (self.blocksize // self.warp_size) * self.tpw
+    tables_per_block = (self.blocksize // self.warpsize) * self.tpw
     table_size_bytes= self.ninputs * 4 * self.tsize
     ts_per_block = tables_per_block * table_size_bytes
     return int(ts_per_block)
