@@ -1303,7 +1303,7 @@ class HPACInstaller:
     def setup_experiment_environment(self):
         add_to_env('LD_LIBRARY_PATH', f'{self.install_location}/lib')
         add_to_env('CPATH', f'{self.install_location}/lib/clang/{self.build_cfg.clang_version}/include')
-        add_to_env('LIBAPPROX_LOCATION', f"{self.install_location}/lib/")
+        set_env('LIBAPPROX_LOCATION', f"{self.install_location}/lib/")
 
     def get_build_cfg(self, destination, clang_src, clang_version, enable_shared, device_stats, sm_size, tables_per_warp, taf_width, other_options):
         options = {
