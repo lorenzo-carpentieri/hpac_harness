@@ -1220,19 +1220,34 @@ class HPACMemoryUsageTrackingNodeExperiment(HPACNodeExperiment):
       self._metrics = metrics
 
     def run_trials(self, num_trials):
+        self.approx_params.configure_environment()
         original_run_cmd = self.instance.get_run_command()
-        ncu = sh.bake('ncu', '--metrics', ','.join(self._metrics), '-s', 1,
+        ncu = sh.Command('ncu').bake('--metrics', ','.join(self._metrics), '-s', 1,
                       '--csv'
         )
 
         
-        self.instance.set_command(ncu.bake(original_run_cmd))
-        output = self.instance.run_trials(num_trials)
-        print("Output is: ", output)
+        self.instance.set_run_command(ncu.bake(original_run_cmd._path).bake(*original_run_cmd._partial_baked_args))
+        #self.instance.set_run_command(ncu.bake(original_run_cmd._path).bake(*original_run_cmd._partial_baked_args))
+        print(self.instance.get_run_command())
+        output = self.instance.run_trial()
 
+        output_lines = output.split('\n')
+        target = '"ID","Process ID","Process Name"'
+        for idx, l in enumerate(output_lines):
+          if l.startswith(target):
+            interesting_data = output_lines[idx::]
+        data_str = io.StringIO('\n'.join(interesting_data))
+        df = pd.read_csv(data_str)
+        df.loc[:,'exp_num'] = self.exp_num
+        df = df[["Kernel Name", "Metric Name", "Metric Unit", "Metric Value", "exp_num"]]
+        print(df)
 
     def write_info_to_db(self, db_conn, exp_num):
-        super().write_info_to_db(db_conn, exp_num)
+        env_info = self.rtenv.get_db_info()
+        inst_info = self.instance.get_db_info()
+        params_info = self.approx_params.get_db_info()
+        info = list()
 
 class HPACStatsCollectingNodeExperiment(HPACNodeExperiment):
     def __init__(self, exp_num, instance, rtenv, approx_params, db_writer, num_trials):
