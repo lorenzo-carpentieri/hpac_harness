@@ -1220,7 +1220,7 @@ class HPACMemoryUsageTrackingNodeExperiment(HPACNodeExperiment):
       self._metrics = metrics
 
     def run_trials(self, num_trials):
-        original_run_cmd = self.instance.get_command()
+        original_run_cmd = self.instance.get_run_command()
         ncu = sh.bake('ncu', '--metrics', ','.join(self._metrics), '-s', 1,
                       '--csv'
         )
