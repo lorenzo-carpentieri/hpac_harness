@@ -366,6 +366,7 @@ class HPACBenchmarkInstance:
       self.region = region
       self.install_location = install_location
       self.error_metric = None
+      self.command = None
     @classmethod
     def get_instance_class(cls, name):
       if name == 'kmeans':
@@ -432,6 +433,9 @@ class HPACBenchmarkInstance:
         with sh.pushd(self.get_build_location()):
             stdout = self.get_run_command()()
         return stdout
+       
+    def set_run_command(self, new_cmd):
+       self.command = new_cmd
 
 
 
@@ -1148,6 +1152,7 @@ class UNIXMakeProgramBuilder(ProgramBuilder):
     def get_name(self):
         return "UNIX Makefiles"
 
+
 class HPACNodeExperiment:
     def __init__(self, exp_num, instance, rtenv, approx_params, db_writer, num_trials):
         self.hostname = sh.hostname().strip()
@@ -1207,6 +1212,27 @@ class HPACNodeExperiment:
         # For instance, in K-Means we are interested in the number of
         # iterations to convergence.
         self.instance.write_info_to_db(db_conn, self.exp_num)
+
+class HPACMemoryUsageTrackingNodeExperiment(HPACNodeExperiment):
+   # metrics is a list of string ncu metric names to track
+    def __init__(self, exp_num, instance, rtenv, approx_params, db_writer, num_trials, metrics):
+      super().__init__(exp_num, instance, rtenv, approx_params, db_writer, num_trials)
+      self._metrics = metrics
+
+    def run_trials(self, num_trials):
+        original_run_cmd = self.instance.get_command()
+        ncu = sh.bake('ncu', '--metrics', ','.join(self._metrics), '-s', 1,
+                      '--csv'
+        )
+
+        
+        self.instance.set_command(ncu.bake(original_run_cmd))
+        output = self.instance.run_trials(num_trials)
+        print("Output is: ", output)
+
+
+    def write_info_to_db(self, db_conn, exp_num):
+        super().write_info_to_db(db_conn, exp_num)
 
 class HPACStatsCollectingNodeExperiment(HPACNodeExperiment):
     def __init__(self, exp_num, instance, rtenv, approx_params, db_writer, num_trials):
