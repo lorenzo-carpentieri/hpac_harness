@@ -1240,7 +1240,7 @@ class HPACMemoryUsageTrackingNodeExperiment(HPACNodeExperiment):
         data_str = io.StringIO('\n'.join(interesting_data))
         df = pd.read_csv(data_str)
         df.loc[:,'exp_num'] = self.exp_num
-        df = df[["Kernel Name", "Metric Name", "Metric Unit", "Metric Value", "exp_num"]]
+        self.df = df[["Kernel Name", "Metric Name", "Metric Unit", "Metric Value"]]
         print(df)
 
     def write_info_to_db(self, db_conn, exp_num):
@@ -1248,6 +1248,20 @@ class HPACMemoryUsageTrackingNodeExperiment(HPACNodeExperiment):
         inst_info = self.instance.get_db_info()
         params_info = self.approx_params.get_db_info()
         info = list()
+
+        # loop over the rows of the dataframe
+        for idx, row in self.df.iterrows():
+           info.append(self.exp_num, idx+1, *env_info, *inst_info, *params_info,
+                       row['Kernel Name'], row['Metric Name'], row['Metric Unit'], row['Metric Value']
+                       )
+
+        print(info)
+        cur = db_conn.cursor()
+        insert = ['?'] * len(info[0])
+        insert = ','.join(insert)
+        cur.executemany(f'INSERT INTO {table_name} VALUES({insert})', info)
+        db_conn.commit()
+        self.instance.write_info_to_db(db_conn, self.exp_num)
 
 class HPACStatsCollectingNodeExperiment(HPACNodeExperiment):
     def __init__(self, exp_num, instance, rtenv, approx_params, db_writer, num_trials):
