@@ -45,6 +45,10 @@ class PerfoExperimentConfiguration(ExperimentConfiguration):
     skip: Union[float, int]
 
 @dataclass
+class ExactExperimentConfiguration(ExperimentConfiguration):
+    pass
+
+@dataclass
 class TAFExperimentConfiguration(ExperimentConfiguration):
     prediction_size: int
     history_size: int
@@ -181,6 +185,9 @@ class HPACApproxParams:
       elif name == 'taf':
         APPROX_TECHNIQUE = 'taf'
         return TAFApproxParams(param, approx_args)
+      elif name == 'exact':
+        APPROX_TECHNIQUE = 'exact'
+        return ExactApproxParams(param)
       else:
         raise ValueError(f"Incorrect perfo type: {name}")
 
@@ -310,6 +317,29 @@ class iACTApproxParams(HPACApproxParams):
     return (self.tsize, self.threshold, self.tpw, self.rp, self.hierarchy)
   def get_name(self):
     return self.name
+
+class ExactApproxParams(HPACApproxParams):
+    def __init__(self, param):
+      self.name = "exact"
+      self.warpsize = int(param['warp_size'])
+      self.blocksize = int(param['blocksize'])
+
+    def get_technique_tuple(self):
+      return ("EXACT", "exact")
+
+    def get_hpac_build_params(self):
+       return {
+           'TABLES_PER_WARP': str(1),
+            'SHARED_MEMORY_SIZE': str(1),
+            'TAF_WIDTH': str(1)
+            }
+
+    def get_db_info(self):
+        return (self.name)
+
+    def get_name(self):
+        return self.name
+    
 
 class TAFApproxParams(HPACApproxParams):
   def __init__(self, param, approx_args):
