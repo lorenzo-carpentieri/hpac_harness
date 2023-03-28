@@ -966,6 +966,8 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
         return float(runtime[0].split()[3])
 
     def write_info_to_db(self, db_conn, exp_num):
+      if not hasattr(self, 'nloops'):
+        return
       global APPROX_TECHNIQUE
       table_name = f'kmeans_{APPROX_TECHNIQUE}'
       cur = db_conn.cursor()
