@@ -1243,23 +1243,35 @@ class HPACMemoryUsageTrackingNodeExperiment(HPACNodeExperiment):
         self.df = df[["Kernel Name", "Metric Name", "Metric Unit", "Metric Value"]]
         print(df)
 
-    def write_info_to_db(self, db_conn, exp_num):
+    def write_info_to_db(self, db_conn, table_name):
         env_info = self.rtenv.get_db_info()
         inst_info = self.instance.get_db_info()
         params_info = self.approx_params.get_db_info()
         info = list()
+        info_metr = list()
+
+        info = [[self.exp_num, 1, *env_info, *inst_info, *params_info]]
 
         # loop over the rows of the dataframe
         for idx, row in self.df.iterrows():
-           info.append(self.exp_num, idx+1, *env_info, *inst_info, *params_info,
-                       row['Kernel Name'], row['Metric Name'], row['Metric Unit'], row['Metric Value']
-                       )
+           info_metr.append([
+			   self.exp_num, row['Kernel Name'], row['Metric Name'], row['Metric Unit'], row['Metric Value']
+	   ]
+	   )
+
+        table_name_metr = f'{table_name}_metrics'
 
         print(info)
         cur = db_conn.cursor()
         insert = ['?'] * len(info[0])
         insert = ','.join(insert)
         cur.executemany(f'INSERT INTO {table_name} VALUES({insert})', info)
+
+        insert = ['?'] * len(info_metr[0])
+        insert = ','.join(insert) 
+        cur.executemany(f'INSERT INTO {table_name_metr} VALUES({insert})', info_metr)
+
+
         db_conn.commit()
         self.instance.write_info_to_db(db_conn, self.exp_num)
 
