@@ -901,6 +901,7 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
         min_clusters: int
         max_clusters: int
         num_iters: int
+        converg_max: int
 
     @dataclass
     class BuildParams:
@@ -919,7 +920,8 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
                                          run_config['num_features'],
                                          run_config['min_clusters'],
                                          run_config['max_clusters'],
-                                         run_config['num_kmeans_iters']
+                                         run_config['num_kmeans_iters'],
+                                         run_config['converg_iters']
                                     )
         self.build_params = self.BuildParams(config_dict['executable_name'],
                                              config_dict['benchmark_directory'],
@@ -938,7 +940,8 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
             self.command =  sh.Command(exe).bake('-i', runp.input_data,
                                                  '-m', runp.min_clusters,
                                                  '-n', runp.max_clusters,
-                                                 '-l', runp.num_iters
+                                                 '-l', runp.num_iters,
+                                                 '-c', runp.converg_max
                                                  )
         return self.command
 
