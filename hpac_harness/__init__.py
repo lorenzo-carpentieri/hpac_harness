@@ -335,7 +335,7 @@ class ExactApproxParams(HPACApproxParams):
             }
 
     def get_db_info(self):
-        return (self.name)
+        return ([self.name])
 
     def get_name(self):
         return self.name
@@ -1296,7 +1296,6 @@ class HPACMemoryUsageTrackingNodeExperiment(HPACNodeExperiment):
 
         table_name_metr = f'{table_name}_metrics'
 
-        print(info)
         cur = db_conn.cursor()
         insert = ['?'] * len(info[0])
         insert = ','.join(insert)
