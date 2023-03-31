@@ -282,7 +282,7 @@ class SmallPerfoApproxParams(SkipPerfoApproxParams):
        super().configure_environment()
 
 
-class LargePerfoApproxParams(PerfoApproxParams):
+class LargePerfoApproxParams(SkipPerfoApproxParams):
     def __init__(self, param):
         super().__init__(param)
         self.name = "large"
