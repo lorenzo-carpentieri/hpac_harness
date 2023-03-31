@@ -179,6 +179,14 @@ class HPACApproxParams:
         elif tech == 'large':
             APPROX_TECHNIQUE = 'perfo:large'
             return LargePerfoApproxParams(param)
+        elif tech == 'ini':
+            APPROX_TECHNIQUE = 'perfo:ini'
+            return IniPerfoApproxParams(param)
+        elif tech == 'fini':
+            APPROX_TECHNIQUE = 'perfo:fini'
+            return FiniPerfoApproxParams(param)
+        else:
+            raise ValueError(f"Incorrect perfo type: {tech}")
       elif name == 'iact':
         APPROX_TECHNIQUE = 'iact'
         return iACTApproxParams(param, approx_args)
@@ -189,7 +197,7 @@ class HPACApproxParams:
         APPROX_TECHNIQUE = 'exact'
         return ExactApproxParams(param)
       else:
-        raise ValueError(f"Incorrect perfo type: {name}")
+        raise ValueError(f"Incorrect Approx type: {name}")
 
     def configure_environment(self):
         pass
@@ -254,22 +262,70 @@ class PerfoApproxParams(HPACApproxParams):
     def get_hpac_build_params(self):
       return dict()
 
-class SmallPerfoApproxParams(PerfoApproxParams):
+class SkipPerfoApproxParams(PerfoApproxParams):
     def __init__(self, param):
         self.skip = int(param['skip'])
+
+    def configure_environment(self):
+       os.environ['PERFO_SKIP'] = str(self.skip)
+
+class SmallPerfoApproxParams(SkipPerfoApproxParams):
+    def __init__(self, param):
+        super().__init__(param)
         self.name = "small"
 
     def get_technique_tuple(self):
         return ("sPerfo" , "perfo(small:%s)")
 
+    def configure_environment(self):
+       os.environ['PERFO_MODE'] = '0'
+       super().configure_environment()
+
 
 class LargePerfoApproxParams(PerfoApproxParams):
     def __init__(self, param):
-        self.skip = int(param['skip'])
+        super().__init__(param)
         self.name = "large"
 
     def get_technique_tuple(self):
         return ("lPerfo", "perfo(large:%s)")
+
+    def configure_environment(self):
+       os.environ['PERFO_MODE'] = '1'
+       super().configure_environment()
+
+class PercentPerfoApproxParams(PerfoApproxParams):
+    def __init__(self, param):
+        self.skip = int(param['skip'])
+
+    def configure_environment(self):
+        os.environ['PERFO_PERCENT'] = str(self.skip)
+
+
+class IniPerfoApproxParams(PercentPerfoApproxParams):
+    def __init__(self, param):
+        super().__init__(param)
+        self.name = "ini"
+
+    def get_technique_tuple(self):
+        return ("iPerfo", "perfo(ini:%s)")
+
+    def configure_environment(self):
+       super().configure_environment()
+       os.environ['PERFO_MODE'] = '2'
+
+class FiniPerfoApproxParams(PercentPerfoApproxParams):
+    def __init__(self, param):
+        super().__init__(param)
+        self.name = "fini"
+
+    def get_technique_tuple(self):
+        return ("fPerfo", "perfo(fini:%s)")
+
+    def configure_environment(self):
+       super().configure_environment()
+       os.environ['PERFO_MODE'] = '3'
+
 
 class iACTApproxParams(HPACApproxParams):
   def __init__(self, param, approx_args):
