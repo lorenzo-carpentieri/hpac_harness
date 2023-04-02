@@ -173,17 +173,14 @@ class HPACApproxParams:
           approx_args = approx_args[name]
       if name == 'perfo':
         tech = param['technique']
+        APPROX_TECHNIQUE = 'perfo'
         if tech == 'small':
-            APPROX_TECHNIQUE = 'perfo:small'
             return SmallPerfoApproxParams(param)
         elif tech == 'large':
-            APPROX_TECHNIQUE = 'perfo:large'
             return LargePerfoApproxParams(param)
         elif tech == 'ini':
-            APPROX_TECHNIQUE = 'perfo:ini'
             return IniPerfoApproxParams(param)
         elif tech == 'fini':
-            APPROX_TECHNIQUE = 'perfo:fini'
             return FiniPerfoApproxParams(param)
         else:
             raise ValueError(f"Incorrect perfo type: {tech}")
