@@ -1235,7 +1235,7 @@ class UNIXMakeProgramBuilder(ProgramBuilder):
                 self.build_command = self._build_command(self.build_command)
             return super().build()
     def _build_command(self, cmd):
-        sh.make('clean')
+        sh.make('-f', self.makefile_name, 'clean')
         if self.target:
             return sh.make.bake('-f', self.makefile_name, self.target)
         else:
