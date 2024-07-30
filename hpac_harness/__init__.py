@@ -468,6 +468,8 @@ class HPACBenchmarkInstance:
           return HPACLavaMDStatsCollectingInstance
       elif name == 'miniFE':
         return HPACMiniFEInstance
+      elif name == 'axpy':
+        return HPACAxpyInstance
       else:
         raise ValueError("No instance type for benchmark type "
                           f"{name} found."
@@ -520,6 +522,69 @@ class HPACBenchmarkInstance:
     def set_run_command(self, new_cmd):
        self.command = new_cmd
 
+
+class HPACAxpyInstance(HPACBenchmarkInstance):
+  @dataclass
+  class RunParams:
+    input_data: str
+    exact_results: str
+
+  @dataclass
+  class BuildParams:
+  # TODO: this class can be extracted? Code is shared
+    executable_name: str
+    benchmark_directory: str
+    output_filename: str
+
+  def __init__(self, name, region, config_dict, install_location=None):
+    super().__init__(name, region, config_dict, install_location)
+    self.command = None
+    run_config = config_dict['executable_arguments']
+    self.run_params = self.RunParams(config_dict['input_data'],
+                                     config_dict['exact_results'],
+                                     )
+    self.build_params = self.BuildParams(config_dict['executable_name'],
+                                         config_dict['benchmark_directory'],
+                                         config_dict['output_filename']
+                                         )
+    self.install_location = install_location
+    self.runtime = 0
+    self.error_metric = "mape"
+
+  def get_run_command(self):
+    if not self.command:
+      exe = self.get_build_location() / Path(self.build_params.executable_name)
+      exe = exe.resolve()
+      runp = self.run_params
+      self.command =  sh.Command(exe).bake(self.run_params.input_data,
+                                           self.build_params.output_filename
+                                           )
+    return self.command
+
+  def build(self, pre=None, post=None):
+    # TODO: this can probably be moved to the baseclass
+    build_dir = self.get_build_location()
+    if not build_dir.exists():
+        build_dir.mkdir(parents=True, exist_ok=True)
+    sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
+
+    if pre:
+        pre()
+    builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
+    builder.build()
+    if post:
+        post()
+
+  def get_runtime(self, stdout):
+    #TODO: change with parsing output
+    return float(1.5)
+
+  def get_error(self):
+    #TODO: change with how to compute the error
+      return 0
+
+  def get_n(self):
+    return 32
 
 
 class HPACBinomialOptionsInstance(HPACBenchmarkInstance):
@@ -575,7 +640,7 @@ class HPACBinomialOptionsInstance(HPACBenchmarkInstance):
         build_dir.mkdir(parents=True, exist_ok=True)
     sh.cp('-r',
           list(self.get_benchmark_directory().glob('*')),
-          build_dir
+          str(build_dir)
           )
 
     if pre:
@@ -661,7 +726,7 @@ class HPACBlackscholesInstance(HPACBenchmarkInstance):
       build_dir = self.get_build_location()
       if not build_dir.exists():
           build_dir.mkdir(parents=True, exist_ok=True)
-      sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+      sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
       if pre:
           pre()
       builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
@@ -742,7 +807,7 @@ class HPACLeukocyteInstance(HPACBenchmarkInstance):
         build_dir = self.get_build_location()
         if not build_dir.exists():
             build_dir.mkdir(parents=True, exist_ok=True)
-        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
         if pre:
             pre()
         builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
@@ -834,7 +899,7 @@ class HPACLULESHInstance(HPACBenchmarkInstance):
         build_dir = self.get_build_location()
         if not build_dir.exists():
             build_dir.mkdir(parents=True, exist_ok=True)
-        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
         if pre:
             pre()
         builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
@@ -921,7 +986,7 @@ class HPACLavaMDInstance(HPACBenchmarkInstance):
         build_dir = self.get_build_location()
         if not build_dir.exists():
             build_dir.mkdir(parents=True, exist_ok=True)
-        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
         if pre:
             pre()
         builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
@@ -1032,7 +1097,7 @@ class HPACKmeansInstance(HPACBenchmarkInstance):
         build_dir = self.get_build_location()
         if not build_dir.exists():
             build_dir.mkdir(parents=True, exist_ok=True)
-        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
         if pre:
             pre()
         builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
@@ -1114,7 +1179,7 @@ class HPACMiniFEInstance(HPACBenchmarkInstance):
         build_dir = self.get_build_location()
         if not build_dir.exists():
             build_dir.mkdir(parents=True, exist_ok=True)
-        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), build_dir)
+        sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
         if pre:
             pre()
         builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
@@ -1460,6 +1525,7 @@ class HPACInstaller:
         set_env('LIBAPPROX_LOCATION', f"{self.install_location}/lib/")
 
     def get_build_cfg(self, destination, clang_src, clang_version, enable_shared, device_stats, sm_size, tables_per_warp, taf_width, other_options):
+        print(f'sm_size: {sm_size},  tabels_per_warp: {tables_per_warp}, taf_width: {taf_width}')
         options = {
             'CMAKE_INSTALL_PREFIX': destination,
             'LLVM_EXTERNAL_CLANG_SOURCE_DIR': clang_src,
