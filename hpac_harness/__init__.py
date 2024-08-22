@@ -470,6 +470,8 @@ class HPACBenchmarkInstance:
         return HPACMiniFEInstance
       elif name == 'axpy':
         return HPACAxpyInstance
+      elif name == "sobel":
+        return HPACSobelInstance
       else:
         raise ValueError("No instance type for benchmark type "
                           f"{name} found."
@@ -585,6 +587,74 @@ class HPACAxpyInstance(HPACBenchmarkInstance):
 
   def get_n(self):
     return 32
+
+
+
+
+class HPACSobelInstance(HPACBenchmarkInstance):
+  @dataclass
+  class RunParams:
+    img: str
+    reps: str
+    exact_results: str
+
+  @dataclass
+  class BuildParams:
+  # TODO: this class can be extracted? Code is shared
+    executable_name: str
+    benchmark_directory: str
+
+  def __init__(self, name, region, config_dict, install_location=None):
+    super().__init__(name, region, config_dict, install_location)
+    self.command = None
+    run_config = config_dict['executable_arguments']
+    # print(config_dict)
+    self.run_params = self.RunParams(config_dict['img'],
+                                     run_config['reps'],
+                                     config_dict['exact_results'],
+                                     )
+    self.build_params = self.BuildParams(config_dict['executable_name'],
+                                         config_dict['benchmark_directory']
+                                         )
+    self.install_location = install_location
+    self.runtime = 0
+    self.error_metric = "mape"
+
+  def get_run_command(self):
+    if not self.command:
+      exe = self.get_build_location() / Path(self.build_params.executable_name)
+      exe = exe.resolve()
+      runp = self.run_params
+      self.command =  sh.Command(exe).bake(self.run_params.img,
+                                           self.run_params.reps
+                                           )
+    return self.command
+
+  def build(self, pre=None, post=None):
+    # TODO: this can probably be moved to the baseclass
+    build_dir = self.get_build_location()
+    if not build_dir.exists():
+        build_dir.mkdir(parents=True, exist_ok=True)
+    sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
+
+    if pre:
+        pre()
+    builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
+    builder.build()
+    if post:
+        post()
+
+  def get_runtime(self, stdout):
+    #TODO: change with parsing output
+    return float(1.5)
+
+  def get_error(self):
+    #TODO: change with how to compute the error
+      return 0
+
+  def get_n(self):
+    return 32
+
 
 
 class HPACBinomialOptionsInstance(HPACBenchmarkInstance):
@@ -827,7 +897,6 @@ class HPACLeukocyteInstance(HPACBenchmarkInstance):
     def get_error(self):
         e_file = open(self.get_exact_filepath(), 'r')
         a_file = open(self.get_approx_filepath(), 'r')
-
         exact = []
         approx = []
         for line in e_file:
