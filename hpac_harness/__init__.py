@@ -519,6 +519,7 @@ class HPACBenchmarkInstance:
     def run_trial(self):
         with sh.pushd(self.get_build_location()):
             stdout = self.get_run_command()()
+        print(stdout)
         return stdout
        
     def set_run_command(self, new_cmd):
@@ -595,6 +596,7 @@ class HPACSobelInstance(HPACBenchmarkInstance):
   @dataclass
   class RunParams:
     img: str
+    out_img: str
     reps: str
     exact_results: str
 
@@ -608,8 +610,10 @@ class HPACSobelInstance(HPACBenchmarkInstance):
     super().__init__(name, region, config_dict, install_location)
     self.command = None
     run_config = config_dict['executable_arguments']
-    # print(config_dict)
+    
+    
     self.run_params = self.RunParams(config_dict['img'],
+                                     config_dict['imgout'],
                                      run_config['reps'],
                                      config_dict['exact_results'],
                                      )
@@ -626,6 +630,7 @@ class HPACSobelInstance(HPACBenchmarkInstance):
       exe = exe.resolve()
       runp = self.run_params
       self.command =  sh.Command(exe).bake(self.run_params.img,
+                                           self.run_params.out_img,
                                            self.run_params.reps
                                            )
     return self.command
@@ -646,13 +651,16 @@ class HPACSobelInstance(HPACBenchmarkInstance):
 
   def get_runtime(self, stdout):
     #TODO: change with parsing output
-    return float(1.5)
+    stdout_lines = stdout.split('\n')
+    runtime = list(filter(lambda x: x.startswith('Average kernel execution time:'), stdout_lines))
+    return str.split(runtime[0], " ")[4]
 
   def get_error(self):
     #TODO: change with how to compute the error
       return 0
 
   def get_n(self):
+    # This parameter defines the number of block
     return 32
 
 
