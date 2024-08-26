@@ -478,6 +478,8 @@ class HPACBenchmarkInstance:
         return HPACBlurInstance
       elif name == "median":
       	return HPACMedianInstance 
+      elif name == "gaussian":
+      	return HPACGaussianInstance 
       else:
         raise ValueError("No instance type for benchmark type "
                           f"{name} found."
@@ -877,6 +879,75 @@ class HPACMedianInstance(HPACBenchmarkInstance):
     # This parameter defines the number of block
     return 32
 
+
+
+class HPACGaussianInstance(HPACBenchmarkInstance):
+  @dataclass
+  class RunParams:
+    img: str
+    out_img: str
+    exact_results: str
+
+  @dataclass
+  class BuildParams:
+  # TODO: this class can be extracted? Code is shared
+    executable_name: str
+    benchmark_directory: str
+
+  def __init__(self, name, region, config_dict, install_location=None):
+    super().__init__(name, region, config_dict, install_location)
+    self.command = None
+    run_config = config_dict['executable_arguments']
+    
+    
+    self.run_params = self.RunParams(config_dict['img'],
+                                     config_dict['imgout'],
+                                     config_dict['exact_results'],
+                                     )
+    self.build_params = self.BuildParams(config_dict['executable_name'],
+                                         config_dict['benchmark_directory']
+                                         )
+    self.install_location = install_location
+    self.runtime = 0
+    self.error_metric = "mape"
+
+  def get_run_command(self):
+    if not self.command:
+      exe = self.get_build_location() / Path(self.build_params.executable_name)
+      exe = exe.resolve()
+      runp = self.run_params
+      self.command =  sh.Command(exe).bake(self.run_params.img,
+                                           self.run_params.out_img,
+                                           )
+    return self.command
+
+  def build(self, pre=None, post=None):
+    # TODO: this can probably be moved to the baseclass
+    build_dir = self.get_build_location()
+    if not build_dir.exists():
+        build_dir.mkdir(parents=True, exist_ok=True)
+    sh.cp('-r', glob.glob(f'{self.build_params.benchmark_directory}/*'), str(build_dir))
+
+    if pre:
+        pre()
+    builder = UNIXMakeProgramBuilder(build_dir, 'Makefile.approx')
+    builder.build()
+    if post:
+        post()
+
+  def get_runtime(self, stdout):
+    #TODO: change with parsing output
+    stdout_lines = stdout.split('\n')
+    runtime = list(filter(lambda x: x.startswith('Average kernel execution time:'), stdout_lines))
+    return str.split(runtime[0], " ")[4]
+
+  def get_error(self):
+    #TODO: change with how to compute the error
+      return 0
+
+  def get_n(self):
+    # This parameter defines the number of block
+    return 32
 
 
 
